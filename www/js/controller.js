@@ -202,6 +202,12 @@ const winMenu = [
     ],
   },
   ...devMenu,
+  {
+    label: 'Donate',
+    click: () => {
+      electron.shell.openExternal('https://khalisfoundation.org/donate/');
+    },
+  },
 ];
 
 const macMenu = [
@@ -275,6 +281,12 @@ const macMenu = [
     ],
   },
   ...devMenu,
+  {
+    label: 'Donate',
+    click: () => {
+      electron.shell.openExternal('https://khalisfoundation.org/donate/');
+    },
+  },
 ];
 const menu = Menu.buildFromTemplate(process.platform === 'darwin' || process.platform === 'linux' ? macMenu : winMenu);
 if (process.platform === 'darwin' || process.platform === 'linux') {
@@ -301,6 +313,14 @@ $menuButton.addEventListener('click', () => {
 });
 
 function updateViewerScale() {
+  if (global.externalDisplay) {
+    global.viewer = global.externalDisplay;
+  } else {
+    global.viewer = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  }
   const $fitInsideWindow = document.body.classList.contains('presenter-view') ? document.getElementById('navigator') : document.body;
   let scale = 1;
   let previewStyles = '';
@@ -346,20 +366,21 @@ function updateViewerScale() {
   }
 }
 
-global.platform.ipc.on('presenter-view', (e, args) => {
+global.platform.ipc.on('external-display', (e, args) => {
   if (global.platform.getUserPref('app.layout.presenter-view')) {
     document.body.classList.add('presenter-view');
     document.body.classList.remove('home');
   }
   document.body.classList.add('scale-viewer');
-  global.viewer = {
+  global.externalDisplay = {
     width: args.width,
     height: args.height,
   };
   updateViewerScale();
 });
-global.platform.ipc.on('remove-scale-viewer', () => {
-  document.body.classList.remove('scale-viewer');
+global.platform.ipc.on('remove-external-display', () => {
+  delete global.externalDisplay;
+  document.body.classList.remove(['presenter-view', 'scale-viewer']);
 });
 window.onresize = () => {
   updateViewerScale();
@@ -392,21 +413,14 @@ global.platform.ipc.on('next-ang', (event, arg) => {
 global.platform.ipc.on('cast-session-active', () => {
   menuCast.items[0].visible = false;
   menuCast.items[1].visible = true;
-  if (global.platform.getUserPref('app.layout.presenter-view')) {
-    document.body.classList.add('presenter-view');
-    document.body.classList.remove('home');
-  }
-  document.body.classList.add('scale-viewer');
-  global.viewer = {
-    width: 800,
-    height: 600,
-  };
-  updateViewerScale();
   // menuCast.icon = './www/assets/img/ic_cast_black_connected.png';
 });
 global.platform.ipc.on('cast-session-stopped', () => {
   menuCast.items[1].visible = false;
   menuCast.items[0].visible = true;
+  if (!global.externalDisplay) {
+    document.body.classList.remove('presenter-view', 'scale-viewer');
+  }
   // menuCast.icon = './www/assets/img/ic_cast_black.png';
 });
 
